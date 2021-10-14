@@ -1,4 +1,4 @@
-# Certificate Expiry Notifcation
+# Certificate Expiry Notification
 This repo helps in developing a CICD process to keep track of certificates expiring in Mulesoft application
 
 This article is targeted for customers, who have purchased the certificate from CA and are interested in having the custom capability, to alert the certificate expiration date to the responsible team for renewing and managing the certificate accordingly. The outcome of this document will be more helpful for the L2/L3 support and maintenance teams to follow up the certificate renewal with the internal or external teams.
