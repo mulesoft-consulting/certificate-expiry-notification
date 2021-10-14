@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	
+	<flow name="store-expiryFlow" doc:id="1cbfe264-5cda-4a2c-a421-620ddd1d2ca1" >
+		<http:listener doc:name="Listener" doc:id="6098fe47-d38e-4ff8-905a-5b551b376ed8" config-ref="HTTP_Listener_config" path="/api/certficate" allowedMethods="POST"/>
+		<logger level="INFO" doc:name="Logger - start" doc:id="7d9ed214-fe34-490f-af74-c795c66900f3" message="request received"/>
+		<ee:transform doc:name="text to json" doc:id="bc0ebe99-907f-4c69-8e25-a58dea8a3ccf" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+//converting the cicd keytool text output to a json was the biggest challenge.
+// A cicd expert which good scripting knowledge will prefer to do it in CICD using grep or awk commands but I found it easier to do it here.
+
+fun findExpiry(data) = (data splitBy  "\n" filter (($ contains "Alias") or ($ contains "Valid") or ($ contains "Owner")) map using (a= $ splitBy(": ")){
+ ("expiryDate": trim(a[-1]) as DateTime {format : "E MMM dd HH:mm:ss z yyyy"})  if (a[0] == "Valid from"),
+ ((a[0]) : trim(a[-1])) if (a[0] != "Valid from")
+}) reduce ($$ ++ $)
+
+
+var certificateDetails = ((payload splitBy  "\r\n\r\n\r\n") filter ($ contains  "Alias") map {
+certs : findExpiry($) 
+} ).certs
+
+
+---
+
+certificateDetails map ($ ++  {
+	fileName : attributes.headers.fileName default "",//Only this is being passed from Jenkins to this application as of now.
+	appName : attributes.headers.appName default "", // currently empty, get this detail in header from CICD
+	envName: attributes.headers.envName default "", // currently empty, get this detail in header from CICD
+	orgName :attributes.headers.orgName default ""// currently empty, get this detail in header from CICD
+	
+})]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<os:store doc:name="Store details in objectStore using filename but feel free to use any unique combination like filename and appname" doc:id="317c8c28-0fd5-4e53-a189-15041eaa26af" key="#[payload.fileName[0]]" objectStore="Object_store"/>
+	</flow>
+</mule>

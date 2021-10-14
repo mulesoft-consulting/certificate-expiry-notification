@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:cloudhub="http://www.mulesoft.org/schema/mule/cloudhub" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/cloudhub http://www.mulesoft.org/schema/mule/cloudhub/current/mule-cloudhub.xsd">
+	
+	<flow name="alert-notifcation-30days" doc:id="c79c79cb-b87d-4096-973b-b5ceb0a9a976" >
+		<scheduler doc:name="Scheduler - once a day" doc:id="b2a76ead-c2e9-4a5e-baf0-4b3d0432160b" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="1" timeUnit="DAYS"/>
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="Logger - start" doc:id="d4b921de-4410-4ae3-84bf-00b09a763fc2" message="starting notification process" category="com.sf.internal.common.info"/>
+		<os:retrieve-all doc:name="Retrieve all the certificate details updated in objectsore" doc:id="9a90f9c4-dbc5-4dfc-9438-65155d529e5d" objectStore="Object_store"/>
+		<choice doc:name="Choice" doc:id="85ccec8e-fd50-4e2b-b2ac-8d628db59ea9" >
+			<when expression="#[sizeOf(payload) == 0]">
+				<logger level="INFO" doc:name="Logger - No Data found" doc:id="07518518-1359-42c5-b726-7c774de430ac" message="No data in objectstore"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger - retrieved existing values" doc:id="bcb7b6d9-6433-423b-9439-b5d20cffc41d" message="retrived values from objectstore" />
+				<ee:transform doc:name="get certificates expiring in 30 days" doc:id="53d2d845-eaeb-4f98-9304-bbdeeb1ae3ff">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+
+//This dw seems complicated because of objectstore retrieve all and cloudhub connector. 
+
+// Objectstore retrive all output is hashmap of string key and bytes value. Database, it would be much easier to pull information
+
+//cloudhub connector cant send csv or excel attachment but just string data so needed to convert everything to meaningful string sentences
+
+var certData=flatten ((payload mapObject {
+	(certs :read($, "application/json")) // read used to parse the bytes
+}).*certs)
+---
+"Details of certificates expiring in next 30 days - \r\n\r\n\r\n" ++
+(((((certData) 
+
+//getting only the certificates having expiry within a month
+filter (($.expiryDate as DateTime {format : "E MMM dd HH:mm:ss z yyyy"} - now()).days <= 30)))
+
+
+//converting the above output to string using joinBy for cloudhub connector
+map {
+    a : "Certificate in application " ++ $.appName ++ " deployed on environment " 
+    ++ $.envName
+    ++ " with file name " ++ $.fileName ++  " having expiration date as " ++ $.expiryDate ++ "."
+}).*a joinBy "\r\n\r\n") default ""]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<cloudhub:create-notification doc:name="send Alert Notification" doc:id="9877b6e3-4c67-4603-9c65-4d96dcd77e68" config-ref="CloudHub_Config" domain="${cloudhub.app}" priority="INFO">
+		</cloudhub:create-notification>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>
