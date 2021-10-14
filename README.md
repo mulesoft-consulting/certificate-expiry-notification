@@ -3,17 +3,17 @@ This repo helps in developing a CICD process to keep track of certificates expir
 
 This article is targeted for customers, who have purchased the certificate from CA and are interested in having the custom capability, to alert the certificate expiration date to the responsible team for renewing and managing the certificate accordingly. The outcome of this document will be more helpful for the L2/L3 support and maintenance teams to follow up the certificate renewal with the internal or external teams.
 
-Set up a Jenkins pipeline that will perform basic things like build, unit test, deploy, and most importantly check if there is a certificate available in the application source, and then find the certificate expiry date using a password available in the Jenkins file.
+Set up a Jenkins pipeline that will perform basic things like build, unit test, deploy, and **most importantly check if there is a certificate available in the application source, and then find the certificate expiry date using a password available in the Jenkins file**.
 
 It is assumed that your CICD pipeline is able to deploy the application to Cloudhub runtime manager. The application in this repository has a sample certificate that is not used, but we will be using this certificate’s detail to send alerts. 
 
-Our current CICD pipeline is pretty simple having the usual build, test and deploy stages. Now, let’s add a new stage to do the following:
+**Our current CICD pipeline is pretty simple having the usual build, test and deploy stages. Now, let’s add a new stage to do the following:**
 
 1. Check certificate availability in source code
 2. If certificates are found, then get the expiry details using Keytool command
 3. Send the Keytool command output to Mulesoft application using CURL command
 
-Our Mulesoft application will receive the Keytool output from Jenkins CICD using HTTP call to perform the below:
+**Our Mulesoft application will receive the Keytool output from Jenkins CICD using HTTP call to perform the below:**
 
 1. Parse the Keytool text output to get the required details in JSON format
 2. Store the details in *persistent* Objectstore v2 using a unique key that fits your use case (use of non-persistent data can cause data loss)
@@ -21,8 +21,8 @@ Our Mulesoft application will receive the Keytool output from Jenkins CICD using
 4. Send alert using Cloudhub connector
 5. On Anypoint platform, create an alert to trigger an email using Cloudhub custom alerts; such as the one below
 
-As previously mentioned, there are only 2 main components introduced to achieve the above notification: 
-
+**As previously mentioned, there are only 2 main components introduced to achieve the above notification: 
+**
 1. New stage to the CICD pipeline
 2. Mule application to store certificate expiry details and send alerts
 
